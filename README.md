@@ -1,2 +1,2 @@
-Scripts to fetch and process BIOSCAN samples 
+Scripts to download and process BIOSCAN samples 
 🐛 🪰 🐝 🪲 
