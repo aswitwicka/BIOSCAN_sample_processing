@@ -31,7 +31,7 @@ load_pkgs(bioconductor_pkgs, bioconductor = TRUE)
 manifests <- read.table("/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/processing/sts_manifests_22092025.tsv", 
                         sep = "\t",
                         header = TRUE,
-                        fill = TRUE,       # still useful for short rows
+                        fill = TRUE,
                         quote = ""
 )
 
@@ -64,7 +64,6 @@ manifests <- manifests %>% filter(!(str_detect(partner, "TOL-")))
 
 # Remove controls 
 manifests <- manifests[!(grepl("_G12|_H12", manifests$sts_specimen.id)),]
-
 # Correct mistakes (not sure id these has been corrected systematically)
 # Correct the JHGS partner code 
 manifests <- manifests %>%
@@ -132,7 +131,7 @@ manifests <- manifests %>%
     )
   )
 
-# Add comuns with sequencing success
+# Add coluns with sequencing success
 # Catch lot level
 manifests <- manifests %>%
   group_by(sts_CATCH_LOT) %>%
@@ -284,6 +283,56 @@ coordinates_vs_traps[is.na(coordinates_vs_traps$trap_name),] %>% dplyr::select(p
 manifests <- coordinates_vs_traps
 cat("\nTrap names assigned")
 
+# Update BOLD data
+library(BOLDconnectR)
+bold.apikey('32D02751-6F67-4211-BB84-4892748D5F95')
+# Get the data
+project_codes <- c("BSCAN")
+BSCAN_data <- bold.fetch(get_by = "project_codes", identifiers = project_codes)
+# Remove columns with only NA values
+BSCAN_data_filt <- BSCAN_data %>%
+  dplyr::select(where(~ !all(is.na(.))))
+# Select only samples with sequences
+BSCAN_data_sequenced <- BSCAN_data_filt %>% filter(!(is.na(nuc))) %>% unique()
+# nrow(BSCAN_data_filt)
+# nrow(BSCAN_data_sequenced)
+# Add plate
+BSCAN_data_sequenced$plate <- gsub(".{3}$", "", BSCAN_data_sequenced$sampleid)
+BSCAN_data_sequenced$plate <- sub("_$", "", BSCAN_data_sequenced$plate)
+
+BSCAN_data_sequenced <- BSCAN_data_sequenced %>% dplyr::select(sampleid, bin_created_date, bin_uri, class, collectors, family, genus, kingdom, nuc, 
+                                                               nuc_basecount, order, phylum, sequence_run_site, sequence_upload_date, 
+                                                               species, subfamily, tribe)
+colnames(BSCAN_data_sequenced) <- c("sts_specimen.id", "bold_bin_created_date", "bold_bin_uri", "bold_class", "bold_collectors", "bold_family", 
+                                    "bold_genus", "bold_kingdom", "bold_nuc",  "bold_nuc_basecount", "bold_order", "bold_phylum", 
+                                    "bold_sequence_run_site", "bold_sequence_upload_date", "bold_species", "bold_subfamily", "bold_tribe")
+
+
+
+# Define the columns to replace
+cols_to_replace <- c("bold_bin_created_date", "bold_bin_uri", "bold_class", "bold_collectors", 
+                     "bold_family", "bold_genus", "bold_kingdom", "bold_nuc", "bold_nuc_basecount", 
+                     "bold_order", "bold_phylum", "bold_sequence_run_site", "bold_sequence_upload_date", 
+                     "bold_species", "bold_subfamily", "bold_tribe")
+
+# Subset sequnced samples that don't have BOLD records 
+data_merge_subset <- manifests %>%
+  filter(bold_nuc == "None", sts_specimen.id %in% BSCAN_data_sequenced$sts_specimen.id) 
+
+BSCAN_data_sequenced <- BSCAN_data_sequenced %>% filter(sts_specimen.id %in% data_merge_subset$sts_specimen.id)
+
+data_merge_subset_updated <- data_merge_subset %>%
+  dplyr::select(-all_of(cols_to_replace)) %>% 
+  left_join(BSCAN_data_sequenced %>% dplyr::select(sts_specimen.id, all_of(cols_to_replace)), by = "sts_specimen.id")
+
+data_merge_rest <- manifests %>%
+  filter(!(sts_specimen.id %in% data_merge_subset$sts_specimen.id))
+
+data_merge_final <- rbind(data_merge_rest, data_merge_subset_updated)
+
+nrow(manifests)
+nrow(data_merge_final)
+
 # Save the file 
 today_stamp <- format(Sys.Date(), "%Y-%m-%d") 
 file_out    <- sprintf(
@@ -292,6 +341,12 @@ file_out    <- sprintf(
 )
 write.csv(manifests, file_out, row.names = FALSE)
 cat("\nOutput created")
+
+# This dataset containds all BIOSCAN samples (Malaise traps + 24h (±2h) sampling)
+# It includes all samples sampled, sequenced, QC-ed
+# It also includes all catch lots regardless of sequencing success 
+# and all samples regardless of taxonomy (arthropod or not)
+# Therefore is must be processed before using in in any further analyses 
 
 
 
