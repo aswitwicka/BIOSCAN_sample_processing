@@ -1,6 +1,6 @@
-# This script takes the output of:
-# ~/bioscan/processing/code/manifest_fetch.sh
-# And subsets the data for further processing 
+# This script takes the list of traps and their locations and creates the habitat type description within a given radius size
+# NOTE: radius size must be specified
+# NOTE: Norhtern Ireland must be processed seperately
 
 # Load required libraries; All libraries should be automatically installed in the environment
 load_pkgs <- function(pkg, bioconductor = FALSE) {
@@ -95,60 +95,60 @@ occ_points_uk <- vect(occ_uk, geom = c("sts_longitude", "sts_latitude"), crs = "
 occ_points_uk <- terra::project(occ_points_uk, crs(land_lcmUK))
 
 buffer_width <- 500
-
-cat("\nProcessing NI traps")
-
-occ_points <- occ_points_ni
-land_data <- land_dataNI
-cat("\nCreating habitat types per trap")
-# Establish habitat labels
-hab_labels <- c(
-  "Broadleaf woodland", "Coniferous woodland",
-  "Arable & horticulture", "Improved grassland",
-  "Natural grassland", "Calcareous grassland",
-  "Acid grassland", "Fen, marsh & swamp",
-  "Heather", "Heather grassland", "Bog",
-  "Inland rock", "Saltwater", "Freshwater",
-  "Supralittoral rock", "Supralittoral sediment",
-  "Littoral rock", "Littoral sediment", "Saltmarsh",
-  "Urban", "Suburban"
-)
-# Create buffer polygons around each trap
-buf_poly <- terra::buffer(occ_points, width = buffer_width)
-# Extract raster values inside each buffer
-cat("Extract raster values from buffer\n")
-landcover_within_buffers <- terra::extract(
-  land_data, buf_poly,
-  cells = TRUE, exact = TRUE
-)
-# Add trap metadata & pixel count
-landcover_within_buffers$trap_name <- occ_points$trap_name[landcover_within_buffers$ID]
-no_pixels <- table(landcover_within_buffers$trap_name) |>
-  as.data.frame() |>
-  setNames(c("trap_name", "no_pixels"))
-landcover_within_buffers <- landcover_within_buffers |>
-  dplyr::left_join(no_pixels, by = "trap_name")
-# Translate land-cover codes to habitat labels
-cat("Translate land-cover codes to habitat labels\n")
-landcover_within_buffers <- landcover_within_buffers |>
-  dplyr::mutate(
-    habitat_type = factor(
-      nilcm2024_10m_1,
-      levels = 1:21,
-      labels = hab_labels
-    )
-  )
-landcover_within_buffers$habitat_type[is.na(landcover_within_buffers$habitat_type)] <- "Saltwater"
-landcover_within_buffers_ni <- landcover_within_buffers
-cat("\nFinished")
-
-today_stamp <- format(Sys.Date(), "%Y-%m-%d")
-file_out    <- sprintf(
-  "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/CEH2024_NI_trap_500m_%s.csv",
-  today_stamp
-)
-write.csv(landcover_within_buffers_ni, file_out, row.names = FALSE)
-cat("\nOutput created: NI")
+# 
+# cat("\nProcessing NI traps")
+# 
+# occ_points <- occ_points_ni
+# land_data <- land_dataNI
+# cat("\nCreating habitat types per trap")
+# # Establish habitat labels
+# hab_labels <- c(
+#   "Broadleaf woodland", "Coniferous woodland",
+#   "Arable & horticulture", "Improved grassland",
+#   "Natural grassland", "Calcareous grassland",
+#   "Acid grassland", "Fen, marsh & swamp",
+#   "Heather", "Heather grassland", "Bog",
+#   "Inland rock", "Saltwater", "Freshwater",
+#   "Supralittoral rock", "Supralittoral sediment",
+#   "Littoral rock", "Littoral sediment", "Saltmarsh",
+#   "Urban", "Suburban"
+# )
+# # Create buffer polygons around each trap
+# buf_poly <- terra::buffer(occ_points, width = buffer_width)
+# # Extract raster values inside each buffer
+# cat("Extract raster values from buffer\n")
+# landcover_within_buffers <- terra::extract(
+#   land_data, buf_poly,
+#   cells = TRUE, exact = TRUE
+# )
+# # Add trap metadata & pixel count
+# landcover_within_buffers$trap_name <- occ_points$trap_name[landcover_within_buffers$ID]
+# no_pixels <- table(landcover_within_buffers$trap_name) |>
+#   as.data.frame() |>
+#   setNames(c("trap_name", "no_pixels"))
+# landcover_within_buffers <- landcover_within_buffers |>
+#   dplyr::left_join(no_pixels, by = "trap_name")
+# # Translate land-cover codes to habitat labels
+# cat("Translate land-cover codes to habitat labels\n")
+# landcover_within_buffers <- landcover_within_buffers |>
+#   dplyr::mutate(
+#     habitat_type = factor(
+#       nilcm2024_10m_1,
+#       levels = 1:21,
+#       labels = hab_labels
+#     )
+#   )
+# landcover_within_buffers$habitat_type[is.na(landcover_within_buffers$habitat_type)] <- "Saltwater"
+# landcover_within_buffers_ni <- landcover_within_buffers
+# cat("\nFinished")
+# 
+# today_stamp <- format(Sys.Date(), "%Y-%m-%d")
+# file_out    <- sprintf(
+#   "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/CEH2024_NI_trap_500m_%s.csv",
+#   today_stamp
+# )
+# write.csv(landcover_within_buffers_ni, file_out, row.names = FALSE)
+# cat("\nOutput created: NI")
 
 
 cat("\nProcessing UK traps")
