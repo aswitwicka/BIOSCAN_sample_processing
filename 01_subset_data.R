@@ -330,8 +330,24 @@ data_merge_rest <- manifests %>%
 
 data_merge_final <- rbind(data_merge_rest, data_merge_subset_updated)
 
+# Check
 nrow(manifests)
 nrow(data_merge_final)
+
+# Summary
+table(data_merge_final$duration24)
+table(data_merge_final$sts_COLLECTION_METHOD)
+table(data_merge_final$sts_organism_part)
+table(data_merge_final$sequenced_plate_level)
+table(data_merge_final$sequenced_plate_level)
+
+table(data_merge_final$bold_class)
+table(data_merge_final$bold_kingdom)
+
+data_merge_final %>% filter(bold_bin_uri == "None") %>% nrow()
+manifests %>% filter(bold_bin_uri == "None") %>% nrow()
+data_merge_final %>% filter(bold_nuc == "None") %>% nrow()
+manifests %>% filter(bold_nuc == "None") %>% nrow()
 
 # Save the file 
 today_stamp <- format(Sys.Date(), "%Y-%m-%d") 
@@ -339,7 +355,7 @@ file_out    <- sprintf(
   "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/BIOSCAN_100k_samples_corrected%s.csv",
   today_stamp
 )
-write.csv(manifests, file_out, row.names = FALSE)
+write.csv(data_merge_final, file_out, row.names = FALSE)
 cat("\nOutput created")
 
 # This dataset containds all BIOSCAN samples (Malaise traps + 24h (±2h) sampling)
