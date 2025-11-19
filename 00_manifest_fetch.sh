@@ -1,6 +1,6 @@
 #! /bin/bash
-#BSUB -o manifest_fetch-%J-output.log
-#BSUB -e manifest_fetch-%J-error.log
+#BSUB -o log_files/manifest_fetch-%J-output.log
+#BSUB -e log_files/manifest_fetch-%J-error.log
 #BSUB -q normal
 #BSUB -n 4
 #BSUB -G team222
