@@ -7,3 +7,9 @@ Scripts to download and process BIOSCAN samples
 3. Fetch weather information per catch lot
 4. Visualise which catch lots have not been sequenced yet
 5. Calculate Shannon and Simpson indices per catch lot
+
+All required flat files are in:
+/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/processing/required_files
+• collection_time_codes.csv (time codes translated to numeric values)
+• mozz_to_partner.csv (older mozz plates translated to partner codes)
+• trap_to_partner.csv (catch lot location translated to trap name) 
