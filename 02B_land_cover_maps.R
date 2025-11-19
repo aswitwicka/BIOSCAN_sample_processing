@@ -1,6 +1,5 @@
 # This script uses csv files from 02A_land_cover_maps.R
-# /lustre/scratch126/tol/teams/lawniczak/projects/bioscan/habitat_complexity/output/
-# It's a summarised .rds file to use in subsequent analyses 
+# It combines matching NI and GB files and creates a summarised .rds file to use in subsequent analyses 
 
 # Load required libraries; All libraries should be automatically installed in the environment
 load_pkgs <- function(pkg, bioconductor = FALSE) {
@@ -16,7 +15,7 @@ cran_pkgs <- c(
   "here", "knitr", "patchwork", "rnaturalearth", "rnaturalearthdata", 
   "ggplot2", "tidyr", "stringr", "terra", "dismo",
   "parallel", "bigmemory", "raster", "ncdf4", "seqinr", "vegan", "reshape2", "remotes",
-  "phangorn", "shiny", "sf", "textshape", "tibble", "forcats", "lubridate", "viridis", "maps"
+  "phangorn", "shiny", "sf", "tibble", "forcats", "lubridate", "viridis", "maps"
 )
 # Bioconductor packages
 bioconductor_pkgs <- c(
@@ -28,9 +27,9 @@ load_pkgs(cran_pkgs, bioconductor = FALSE)
 load_pkgs(bioconductor_pkgs, bioconductor = TRUE)
 
 # Load the most up-to-date input file
-dir_in   <- "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/habitat_complexity/output/intermediary_files"
+dir_in   <- "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/output"
 
-pattern_gb  <- "*buffer_2024_(\\d{4}-\\d{2}-\\d{2})\\.csv$"   # YYYY-MM-DD
+pattern_gb  <- "*buffer_GBL_2024_(\\d{4}-\\d{2}-\\d{2})\\.csv$"   # YYYY-MM-DD
 files_gb <- list.files(dir_in, pattern = pattern_gb, full.names = TRUE)
 pattern_n  <- "*buffer_NIL_2024_(\\d{4}-\\d{2}-\\d{2})\\.csv$"   # YYYY-MM-DD
 files_n <- list.files(dir_in, pattern = pattern_n, full.names = TRUE)
@@ -45,7 +44,7 @@ working_sets <- lapply(files, read.csv, stringsAsFactors = FALSE)
 extract_meta <- function(fname) {
   bn <- basename(fname)
   buffer_val <- suppressWarnings(as.integer(sub("_buffer.*", "", bn)))
-  date_str <- sub(".*_buffer(?:_NIL)?_2024_(\\d{4}-\\d{2}-\\d{2})\\.csv$", "\\1", bn)
+  date_str <- sub(".*_buffer_(GBL|NIL)_2024_(\\d{4}-\\d{2}-\\d{2})\\.csv$", "\\2", bn)
   if (!grepl("^\\d{4}-\\d{2}-\\d{2}$", date_str)) {
     date_val <- NA
   } else {
@@ -63,8 +62,14 @@ meta <- data.frame(
 cat("Radius files used:\n")
 print(meta)
 
+names(working_sets) <- rownames(meta)
+
+names(working_sets) <- names(working_sets) |>
+  basename() |> # drop path
+  sub("_\\d{4}-\\d{2}-\\d{2}\\.csv$", "", x = _)  
+
 cat("Saving the rds file")
 # Save as R object 
 saveRDS(working_sets, 
-        file = "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/habitat_complexity/output/intermediary_files/02B_working_sets_radius.rds")
+        file = "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/output/02B_working_sets_radius.rds")
 cat("Finished and saved")
