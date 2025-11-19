@@ -75,6 +75,17 @@ For each trap, the script: <br>
 • Saves one output csv per buffer size, separately for GB and NI <br><br>
 The output files: [buffer size]_ buffer_[GBL or NIL]_ 2024_[date].csv
 
+### 02B_land_cover_maps.R
+
+To run from farm submit:
+```bash
+bsub < 02B_land_cover_maps.sh
+```
+
+This script loads the most recent csv files produced by 02A_land_cover_maps.R, extracts metadata and stores all datasets in a single rds file preparing them for downstream analyses. <br><br>
+The output files: 02B_working_sets_radius.rds
+
+
 
 
 
