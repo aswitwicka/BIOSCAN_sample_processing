@@ -7,7 +7,7 @@ library(stringr)
 # But it runs quite quickly 
 
 # Get sample-level data
-working_set <- read.csv("~/Dropbox/1_BIOSCAN2024/100k_paper/working_files/BIOSCAN_100k_samples_2025-09-29.csv") # Output of the 02_habitat_ratios
+working_set <- read.csv("~/Dropbox/1_BIOSCAN2024/100k_paper/working_files/BIOSCAN_100k_samples_2025-09-29.csv") # Subset of samples [sample level data, not catch lot level data]
 working_set <- working_set %>% dplyr::select(sts_CATCH_LOT, trap_name, sts_latitude, sts_longitude, sts_col_date, day, month, year) %>% unique()
 
 # Prepare file maps for each variable
