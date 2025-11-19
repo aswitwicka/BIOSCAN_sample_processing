@@ -1,6 +1,9 @@
-# This script takes the output of:
-# ~/bioscan/processing/code/manifest_fetch.sh
-# And subsets the data for further processing 
+# This script takes the output of 00_manifest_fetch.sh
+# and subsets the data for further processing 
+# removes: control samples, all non-BIOSCAN partners
+# retaines: malaise trap only, 2021 onwards only
+# additional columns: trap, partner, region, plate, day, month, year, 24h sampling selection, if any samples from a given plate / catch lot have been sequenced, 
+# The script also fetches all BOLD data and fills any BIN or sequence gaps that may not have synced
 
 # Load required libraries; All libraries should be automatically installed in the environment
 load_pkgs <- function(pkg, bioconductor = FALSE) {
@@ -16,7 +19,7 @@ cran_pkgs <- c(
   "here", "knitr", "patchwork", "rnaturalearth", "rnaturalearthdata", 
   "ggplot2", "tidyr", "stringr", "terra", "dismo",
   "parallel", "bigmemory", "raster", "ncdf4", "seqinr", "vegan", "reshape2", "remotes",
-  "phangorn", "shiny", "sf", "textshape", "tibble", "forcats", "lubridate", "viridis", "maps"
+  "phangorn", "shiny", "sf", "tibble", "forcats", "lubridate", "viridis", "maps"
 )
 # Bioconductor packages
 bioconductor_pkgs <- c(
@@ -27,15 +30,18 @@ load_pkgs(cran_pkgs, bioconductor = FALSE)
 # Load Bioconductor packages
 load_pkgs(bioconductor_pkgs, bioconductor = TRUE)
 
-# Load the data from sts 
-manifests <- read.table("/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/processing/sts_manifests_22092025.tsv", 
+# Load the most recent data downloaded from sts [output of 00_manifest_fetch.sh]
+dir_path <- "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/processing"
+files <- list.files(dir_path, pattern = "^sts_manifests_[0-9]{8}\\.tsv$", full.names = TRUE)
+dates <- as.Date(sub(".*_(\\d{8})\\.tsv", "\\1", files), format = "%Y%m%d")
+latest_file <- files[which.max(dates)]
+manifests <- read.table(latest_file,
                         sep = "\t",
                         header = TRUE,
                         fill = TRUE,
                         quote = ""
 )
-
-# General check
+cat("Loaded file:", latest_file, "\n")
 cat(paste("Are any samples duplicated:", !(length(unique(manifests$sts_specimen.id)) == nrow(manifests))))
 
 ### PROCESSING AND CLEANING ###
@@ -290,7 +296,7 @@ cat("\nTrap names assigned")
 Sys.setenv(SHAPE_RESTORE_SHX = "YES")
 uk <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf") %>%
   filter(name == "United Kingdom")
-shapefile_path <- "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/habitat_complexity/ceh_maps/ne_10m_admin_1_states_provinces.shp"
+shapefile_path <- "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/processing/maps/ne_10m_admin_1_states_provinces.shp"
 uk_regions <- st_read(shapefile_path)
 # uk_regions <- st_read(shapefile_path, options = "ENCODING=UTF-8", stringsAsFactors = FALSE)
 # uk_regions <- rnaturalearth::ne_states(
@@ -470,7 +476,7 @@ manifests %>% filter(bold_nuc == "None") %>% nrow()
 # Save the file 
 today_stamp <- format(Sys.Date(), "%Y-%m-%d") 
 file_out    <- sprintf(
-  "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/BIOSCAN_100k_samples_corrected%s.csv",
+  "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/output/BIOSCAN_100k_samples_corrected%s.csv",
   today_stamp
 )
 write.csv(data_merge_final, file_out, row.names = FALSE)
