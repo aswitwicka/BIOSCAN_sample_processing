@@ -97,6 +97,8 @@ manifests$day <- substr(manifests$sts_col_date, 9, 10)
 manifests$day[manifests$day == ""] <- "None"
 manifests$month[manifests$month == ""] <- "None"
 
+### This section will no longer be needed once all recent QC updates have been implemented in the portal! ###
+
 # Get mBRAVE data, get FAILED samples, assess plate and catch lot success rates, get info about batches and failed plates 
 # Find all files ending with "_sample_stats.txt" in mBRAVE directories 
 files <- list.files(path = "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/bioscan_qc/mbrave_batch_data", 
@@ -214,7 +216,7 @@ coordinates_vs_traps$sts_longitude <- round(coordinates_vs_traps$sts_longitude, 
 new_partners <- unique(coordinates_vs_traps$partner[!(coordinates_vs_traps$partner %in% trap_per_partner$partner)])
 cat(paste("Partners not included in the trap list:", paste(new_partners, collapse = ", ")))
 # Function to calculate
-# The haversine [great circle] formula determines the great-circle distance between two points on a sphere given their longitudes and latitudes.
+# The haversine [great circle] formula determines the great-circle distance between two points on a sphere given their longitudes and latitudes
 haversine <- function(lat1, lon1, lat2, lon2) {
   R <- 6371 # Earth's radius in kilometers
   delta_lat <- (lat2 - lat1) * pi / 180
@@ -282,6 +284,122 @@ coordinates_vs_traps[is.na(coordinates_vs_traps$trap_name),] %>% nrow()
 coordinates_vs_traps[is.na(coordinates_vs_traps$trap_name),] %>% dplyr::select(partner, sts_latitude, sts_longitude, trap_name) %>% unique()
 manifests <- coordinates_vs_traps
 cat("\nTrap names assigned")
+
+# Add region column
+# Load UK regions
+Sys.setenv(SHAPE_RESTORE_SHX = "YES")
+uk <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf") %>%
+  filter(name == "United Kingdom")
+shapefile_path <- "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/habitat_complexity/ceh_maps/ne_10m_admin_1_states_provinces.shp"
+uk_regions <- st_read(shapefile_path)
+# uk_regions <- st_read(shapefile_path, options = "ENCODING=UTF-8", stringsAsFactors = FALSE)
+# uk_regions <- rnaturalearth::ne_states(
+#   country = "United Kingdom",
+#   returnclass = "sf"
+# )
+
+# Combine into wider regions 
+uk_regions <- uk_regions[uk_regions$admin == "United Kingdom", ]
+regions <- uk_regions %>%
+  mutate(region = case_when(
+    # South-east
+    name %in% c("Greater London", "Kent", "Essex", "Surrey", "Sussex", "Hampshire", 
+                "Oxfordshire", "Buckinghamshire", "Isle of Wight", "Medway", "Thurrock", 
+                "Southend-on-Sea", "Brighton and Hove", "East Sussex", "West Sussex", 
+                "Portsmouth", "Southampton", "Bromley", "Croydon", "Kingston upon Thames", 
+                "Sutton", "Hillingdon", "Hertfordshire", "Hounslow", "Bexley", "Lambeth", "Hackney",
+                "Ealing", "Barnet", "Brent", "Southwark", "Barking and Dagenham", "Wandsworth", "Hammersmith and Fulham",
+                "Waltham Forest", "Harrow", "Lewisham", "Westminster", "Tower Hamlets", "Islington", "Camden", 
+                "Richmond upon Thames", "Greenwich", "Cambridgeshire", "Havering", "Kensington and Chelsea", "Enfield",
+                "Merton", "Redbridge", "Haringey", "Newham", "West Berkshire",
+                "Norfolk", "Suffolk", "Peterborough", "Bedford", "Central Bedfordshire", "Luton",
+                "Royal Borough of Windsor and Maidenhead", "Slough", "Bracknell Forest",
+                "Reading", "Wokingham") ~ "South-east",
+    # South-west
+    name %in% c("Cornwall", "Devon", "Dorset", "Somerset", "Bristol", "Wiltshire", 
+                "Gloucestershire", "Bath and North East Somerset", "South Gloucestershire", 
+                "Plymouth", "Torbay", "Poole", "Bournemouth", "Isles of Scilly", 
+                "Swindon", "North Somerset") ~ "South-west",
+    # Midlands
+    name %in% c("West Midlands", "East Midlands", "Warwickshire", "Staffordshire", 
+                "Derbyshire", "Leicestershire", "Nottinghamshire", "Northamptonshire", 
+                "Herefordshire", "Shropshire", "Worcestershire", "Telford and Wrekin", 
+                "Stoke-on-Trent", "Rutland", "Nottingham", "Leicester", "Derby", 
+                "Solihull", "Coventry", "Sandwell", "Dudley", "Walsall", "Wolverhampton", 
+                "Milton Keynes", "Birmingham",
+                "North Lincolnshire", "North East Lincolnshire", "Lincolnshire") ~ "Midlands",
+    # North England
+    name %in% c("Yorkshire", "Lancashire", "Cumbria", "Northumberland", "Durham", 
+                "Merseyside", "Tyne and Wear", "Cheshire East", "Cheshire West and Chester", 
+                "Manchester", "Liverpool", "Sheffield", "Leeds", "Bradford", "Wakefield", 
+                "Barnsley", "Doncaster", "Rotherham", "Blackburn with Darwen", 
+                "Calderdale", "Kirklees", "Stockton-on-Tees", "Darlington", 
+                "Middlesbrough", "Gateshead", "North Tyneside", "South Tyneside", 
+                "Sunderland", "Hartlepool", "Redcar and Cleveland", "York", 
+                "Salford", "Bolton", "Trafford", "Oldham", "Rochdale", "Tameside", 
+                "Bury", "Wigan", "Halton", "Knowsley", "Sefton", "Blackpool", 
+                "City", "Newcastle upon Tyne", "Warrington", "North Yorkshire", "East Riding of Yorkshire",
+                "Stockport", "Kingston upon Hull") ~ "North England",
+    # Wales
+    name %in% c("Powys", "Gwynedd", "Cardiff", "Swansea", "Ceredigion", "Pembrokeshire", 
+                "Conwy", "Flintshire", "Wrexham", "Denbighshire", "Anglesey", 
+                "Neath Port Talbot", "Vale of Glamorgan", "Rhondda, Cynon, Taff", 
+                "Monmouthshire", "Blaenau Gwent", "Caerphilly", "Bridgend", "Torfaen", 
+                "Merthyr Tydfil", "Newport", "Carmarthenshire") ~ "Wales",
+    # Lowland Scotland
+    name %in% c("Glasgow", "Edinburgh", "Fife", "Dundee", "Stirling", "Aberdeenshire", 
+                "Argyll and Bute", "South Lanarkshire", "North Lanarkshire", "Aberdeen",
+                "Renfrewshire", "East Ayrshire", "Clackmannanshire", "East Renfrewshire", 
+                "West Lothian", "Falkirk", "Scottish Borders", "Dumfries and Galloway", 
+                "East Dunbartonshire", "Midlothian", "East Lothian", "Angus", "Perthshire and Kinross",
+                "Inverclyde", "West Dunbartonshire", "North Ayshire", "South Ayrshire") ~ "Lowland Scotland",
+    # Highland Scotland
+    name %in% c("Highland", "Orkney Islands", "Shetland Islands", "Western Isles", 
+                "Moray", "Eilean Siar", "Orkney") ~ "Highland Scotland",
+    # Northern Ireland
+    name %in% c("Derry", "Strabane", "Fermanagh", "Dungannon", "Armagh", "Newry and Mourne", 
+                "Antrim", "Lisburn", "Ballymoney", "Ballymena", "Magherafelt", "Craigavon", 
+                "Banbridge", "Coleraine", "Moyle", "Larne", "Carrickfergus", "Newtownabbey", 
+                "North Down", "Ards", "Down", "Belfast", "Castlereagh", "Omagh", 
+                "Mid Ulster", "Limavady") ~ "Northern Ireland",
+    # East 
+    name %in% c() ~ "East England",
+    # Catch-all for unassigned
+    TRUE ~ "Unassigned"
+  )) 
+
+# Make points (NOTE: coords are c(lon, lat)!)
+pts_sf <- st_as_sf(
+  manifests,
+  coords = c("sts_longitude", "sts_latitude"),
+  crs = 4326,          
+  remove = FALSE       
+)
+# Ensure regions is sf and CRS matches
+stopifnot(inherits(regions, "sf"), "region" %in% names(regions))
+if (is.na(st_crs(regions))) st_crs(regions) <- 4326
+pts_sf <- st_transform(pts_sf, st_crs(regions))
+
+# Optional - avoids topology errors
+regions <- sf::st_make_valid(regions)
+
+# Spatial join
+pts_join <- st_join(pts_sf, regions[, c("region")], join = st_within)  # or st_intersects
+# Return to data frame format 
+manifests <- st_drop_geometry(pts_join)
+
+# Fix main issues manually for now
+manifests <- manifests %>% 
+  mutate(
+    region = case_when(
+      grepl("HLNR1", trap_name) ~ "Highland Scotland",
+      grepl("NMCC",  trap_name) ~ "Lowland Scotland",
+      TRUE ~ region 
+    )
+  )
+
+# Make sure
+is.na(manifests$region) %>% table()
 
 # Update BOLD data
 library(BOLDconnectR)
@@ -363,8 +481,3 @@ cat("\nOutput created")
 # It also includes all catch lots regardless of sequencing success 
 # and all samples regardless of taxonomy (arthropod or not)
 # Therefore is must be processed before using in in any further analyses 
-
-
-
-
-
