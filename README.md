@@ -85,6 +85,36 @@ bsub < 02B_land_cover_maps.sh
 This script loads the most recent csv files produced by 02A_land_cover_maps.R, extracts metadata and stores all datasets in a single rds file preparing them for downstream analyses. <br><br>
 The output files: 02B_working_sets_radius.rds
 
+### 02C_land_cover_maps.R
+
+To run from farm submit:
+```bash
+bsub < 02C_land_cover_maps.sh
+```
+Or run via RStudio <br><br>
+
+This script calculates habitat diversity indices and ratios of each habitat type for each BIOSCAN trap. The script uses the 02B_working_sets_radius.rds file as input. <br><br>
+Habitat ratios are calculated as ratio = habitat_pixels / total_pixels_within_buffer for: <br>
+• Arable & horticulture <br>
+• Natural grasslands <br>
+• Forest (broadleaf + coniferous) <br>
+• Urban & suburban <br>
+• Improved grasslands <br>
+• Coastal habitats <br>
+• Heather / mountain / bog complexes <br>
+• Freshwater <br>
+The script also returns: <br>
+• Number of unique habitat types per trap <br>
+• Dominant habitat type and its percentage <br>
+• Shannon diversity index (richness + evenness) <br>
+• Simpson diversity index (evenness / dominance) <br>
+Each metric is exported to the output directory as a standalone CSV summarising traps & buffers.<br>
+Generated plots include: <br>
+• Heatmaps showing spatial patterns of each habitat ratio across all traps <br>
+• Correlation plots among buffers for each metric <br>
+• Shannon–Simpson scatterplots per buffer radius <br>
+• Cross-radius correlations of Shannon diversity <br>
+• Summary plots ranking traps by mean and median diversity indices <br>
 
 
 
