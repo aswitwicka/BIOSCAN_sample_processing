@@ -16,7 +16,8 @@
 & /lustre/scratch126/tol/teams/lawniczak/projects/bioscan/bioscan_qc/mbrave_batch_data <br>
 This directory stores all mBRAVE files - information of all samples that have been sequenced. <br><br>
 & /lustre/scratch126/tol/teams/lawniczak/projects/bioscan/processing/maps <br>
-This directory contains all CEH (land cover) and MET office (weather) maps as well as general files required to visualise UK maps.
+This directory contains all CEH (land cover) and MET office (weather) maps as well as general files required to visualise UK maps. <br><br>
+These files must me manually updated when new MET or CEH data appears or when new partners join BIOSCAN. 
 
 ### All code should be run within:
 /lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/code
@@ -55,6 +56,26 @@ The script also corrects previously recognised mistakes in the coordinates of so
 The script assesses completnes of the data using the mBRAVE input files to check if any BIOSCAN samples are missing the QC output information. <br>
 <b>NOTE:</b> BOLDconnectR library requires an API key within the bold.apikey() function that you can obtain from your BOLD account. <br><br>
 The output file: BIOSCAN_100k_samples_corrected[date].csv
+
+### 02A_land_cover_maps.R
+
+Do not run this script interactively because it would be very very slow, instead submit as a job:
+```bash
+bsub < 02A_land_cover_maps.sh
+```
+This script generates habitat-type summaries around BIOSCAN trap locations using 10m resolution CEH 2024 land cover maps. <br>
+NI and GB are processed separately due to the use of different CEH maps. <br>
+For each trap, the script: <br>
+• Loads trap coordinates from a flat file trap_to_partner.csv <br>
+• Loads land cover raster layers for Great Britain (GB) and Northern Ireland (NI) <br>
+• Creates circular buffers of multiple radii (25, 50, 100, 500, 1000 m) - these sizes are currently specified in the script, please edit if you require bigger sizes <br>
+• Extracts all raster pixels intersecting each buffer <br>
+• Converts raster class codes into habitat labels <br>
+• Calculates the number of pixels per trap per buffer <br>
+• Saves one output csv per buffer size, separately for GB and NI <br><br>
+The output files: [buffer size]_ buffer_[GBL or NIL]_ 2024_[date].csv
+
+
 
 
 
