@@ -31,7 +31,7 @@ load_pkgs(cran_pkgs, bioconductor = FALSE)
 load_pkgs(bioconductor_pkgs, bioconductor = TRUE)
 
 # Load the most recent data downloaded from sts [output of 00_manifest_fetch.sh]
-dir_path <- "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/processing"
+dir_path <- "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/output"
 files <- list.files(dir_path, pattern = "^sts_manifests_[0-9]{8}\\.tsv$", full.names = TRUE)
 dates <- as.Date(sub(".*_(\\d{8})\\.tsv", "\\1", files), format = "%Y%m%d")
 latest_file <- files[which.max(dates)]
@@ -103,10 +103,7 @@ manifests$day <- substr(manifests$sts_col_date, 9, 10)
 manifests$day[manifests$day == ""] <- "None"
 manifests$month[manifests$month == ""] <- "None"
 
-### This section will no longer be needed once all recent QC updates have been implemented in the portal! ###
-
-# Get mBRAVE data, get FAILED samples, assess plate and catch lot success rates, get info about batches and failed plates 
-# Find all files ending with "_sample_stats.txt" in mBRAVE directories 
+# Get mBRAVE data to assess if all sequenced samples have a QC category assigned 
 files <- list.files(path = "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/bioscan_qc/mbrave_batch_data", 
                     pattern = "_sample_stats.txt$", 
                     recursive = TRUE, 
@@ -127,18 +124,19 @@ all_seq_samples_table <- files %>%
 
 all_seq_samples <- unique(all_seq_samples_table$Label) 
 all_seq_samples <- str_replace(all_seq_samples, "-SDC", "")
-# Are all these samples in the manifest?
-manifests %>% filter(!(sts_specimen.id %in% all_seq_samples)) %>% filter(bold_nuc != "None") %>% pull(plate) %>% table()
-# Update QC output
+cat("Do all the sequenced (present in mBRAVE) samples have a QC category assigned (anything that has status None)")
+manifests %>% filter(sts_specimen.id %in% all_seq_samples) %>% pull(bioscan_qc_sanger_qc_result) %>% table()
+cat("Do any samples that are not in mBRAVE have a QC category assigned for some reason?")
+manifests %>% filter(!(sts_specimen.id %in% all_seq_samples)) %>% pull(bioscan_qc_sanger_qc_result) %>% table()
+
+# Add sequenced column
 manifests <- manifests %>%
   mutate(
-    qc_res_updated = case_when(
-      bioscan_qc_sanger_qc_result %in% c("PASS", "ON_HOLD") ~ bioscan_qc_sanger_qc_result,
-      bioscan_qc_sanger_qc_result == "None" & sts_specimen.id %in% all_seq_samples ~ "FAILED",
-      bioscan_qc_sanger_qc_result == "None" ~ "Not in mBRAVE"
+    sequenced = case_when(
+      bioscan_qc_sanger_qc_result %in% c("PASS", "ON_HOLD", "FAILED") ~ TRUE,
+      bioscan_qc_sanger_qc_result == "None" ~ FALSE
     )
   )
-
 # Add coluns with sequencing success
 # Catch lot level
 manifests <- manifests %>%
@@ -161,7 +159,7 @@ manifests <- manifests %>%
 # Get sequenced plates (samples in mBRAVE)
 seq_plates <- manifests %>% filter(sts_specimen.id %in% all_seq_samples) %>% pull(plate) %>% unique()
 cat(paste("\nNumber of sequenced plates:", length(seq_plates)))
-empty_neg_cont <- manifests %>% filter(plate %in% seq_plates) %>% filter(qc_res_updated == "Not in mBRAVE") %>% pull(sts_specimen.id)
+empty_neg_cont <- manifests %>% filter(plate %in% seq_plates) %>% filter(sequenced == FALSE) %>% pull(sts_specimen.id)
 manifests <- manifests %>% filter(!(sts_specimen.id %in% empty_neg_cont))
 
 # Upload sampling duration codes 
@@ -224,7 +222,7 @@ cat(paste("Partners not included in the trap list:", paste(new_partners, collaps
 # Function to calculate
 # The haversine [great circle] formula determines the great-circle distance between two points on a sphere given their longitudes and latitudes
 haversine <- function(lat1, lon1, lat2, lon2) {
-  R <- 6371 # Earth's radius in kilometers
+  R <- 6371 # earth's radius in kilometers
   delta_lat <- (lat2 - lat1) * pi / 180
   delta_lon <- (lon2 - lon1) * pi / 180
   a <- sin(delta_lat / 2)^2 + cos(lat1 * pi / 180) * cos(lat2 * pi / 180) * sin(delta_lon / 2)^2
@@ -303,7 +301,6 @@ uk_regions <- st_read(shapefile_path)
 #   country = "United Kingdom",
 #   returnclass = "sf"
 # )
-
 # Combine into wider regions 
 uk_regions <- uk_regions[uk_regions$admin == "United Kingdom", ]
 regions <- uk_regions %>%
@@ -373,8 +370,7 @@ regions <- uk_regions %>%
     # Catch-all for unassigned
     TRUE ~ "Unassigned"
   )) 
-
-# Make points (NOTE: coords are c(lon, lat)!)
+# Make points
 pts_sf <- st_as_sf(
   manifests,
   coords = c("sts_longitude", "sts_latitude"),
@@ -385,15 +381,12 @@ pts_sf <- st_as_sf(
 stopifnot(inherits(regions, "sf"), "region" %in% names(regions))
 if (is.na(st_crs(regions))) st_crs(regions) <- 4326
 pts_sf <- st_transform(pts_sf, st_crs(regions))
-
 # Optional - avoids topology errors
 regions <- sf::st_make_valid(regions)
-
 # Spatial join
 pts_join <- st_join(pts_sf, regions[, c("region")], join = st_within)  # or st_intersects
 # Return to data frame format 
 manifests <- st_drop_geometry(pts_join)
-
 # Fix main issues manually for now
 manifests <- manifests %>% 
   mutate(
@@ -403,9 +396,9 @@ manifests <- manifests %>%
       TRUE ~ region 
     )
   )
-
 # Make sure
 is.na(manifests$region) %>% table()
+table(manifests$region)
 
 # Update BOLD data
 library(BOLDconnectR)
