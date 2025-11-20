@@ -96,20 +96,20 @@ Or run via RStudio <br><br>
 This script calculates habitat diversity indices and ratios of each habitat type for each BIOSCAN trap. The script uses the 02B_working_sets_radius.rds file as input. <br><br>
 Habitat ratios are calculated as ratio = habitat_pixels / total_pixels_within_buffer for: <br>
 • Arable & horticulture <br>
-• Natural grasslands <br>
+• Semi-natural grasslands <br>
 • Forest (broadleaf + coniferous) <br>
-• Urban & suburban <br>
+• Urban & suburban & gardens <br>
 • Improved grasslands <br>
 • Coastal habitats <br>
 • Heather / mountain / bog complexes <br>
 • Freshwater <br>
-The script also returns: <br>
+<b>The script also returns: </b> <br>
 • Number of unique habitat types per trap <br>
 • Dominant habitat type and its percentage <br>
 • Shannon diversity index (richness + evenness) <br>
 • Simpson diversity index (evenness / dominance) <br>
 Each metric is exported to the output directory as a standalone CSV summarising traps & buffers.<br>
-Generated plots include: <br>
+<b>Generated plots include: </b> <br>
 • Heatmaps showing spatial patterns of each habitat ratio across all traps <br>
 • Correlation plots among buffers for each metric <br>
 • Shannon–Simpson scatterplots per buffer radius <br>
