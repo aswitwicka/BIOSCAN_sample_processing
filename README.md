@@ -116,6 +116,28 @@ Each metric is exported to the output directory as a standalone CSV summarising 
 • Cross-radius correlations of Shannon diversity <br>
 • Summary plots ranking traps by mean and median diversity indices <br>
 
+### 02D_land_cover_maps.R
+
+### 03_weather_data_fetch.sh
+(is this python??)
+
+### 03_weather_data.R
+
+### 04_visualise_present_catch_lots.R
+
+### 05_biodiversity_per_catch_lot.R
+Add functional diversity here 
+
+### 07_biodiversity_vs_habitat_models.R
+
+### 08_bins_vs_habitat_models.R
+
+### 09_temporal_turnover.R
+
+### 10_taxonomy_plots.R
+
+### 11_nbn_vs_bioscan.R
+
 
 
 
