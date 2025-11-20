@@ -68,3 +68,9 @@ rm tasmin_hadukgrid_uk_5km_day_2012*
 
 mv *.nc ./tasmin_data/
 
+# Also run
+wget --header "Authorization: Bearer $CEDA_TOKEN" -i METdata_provisional2025.txt 
+# to get provisional 2025 datasets until they are curated in the early 2026 
+
+
+
