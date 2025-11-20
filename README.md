@@ -129,11 +129,12 @@ Each metric is exported to the output directory as a standalone CSV summarising 
 Add functional diversity here 
 
 ### 07_biodiversity_vs_habitat_models.R
-
+for all models remember to subset only 24h and catch lots with good performance - depending on the analysis
+also subset the months based on the 24h sampling distribution (winter excluded)
 ### 08_bins_vs_habitat_models.R
 
 ### 09_temporal_turnover.R
-
+how to deal with the winter 24h+ samples??
 ### 10_taxonomy_plots.R
 
 ### 11_nbn_vs_bioscan.R
