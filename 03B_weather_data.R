@@ -20,7 +20,22 @@ cran_pkgs <- c(
 load_pkgs(cran_pkgs, bioconductor = FALSE)
 
 # Get sample-level data (csv output of 01_subset_data.R)
-working_set <- read.csv("/Users/aw43/farm22/100k_paper/output/BIOSCAN_100k_samples_corrected2025-11-20.csv")
+# Load data [put the right input directory and the file name]
+dir_in   <- "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/output"
+pattern  <- "^BIOSCAN_100k_samples_corrected(\\d{4}-\\d{2}-\\d{2})\\.csv$" 
+files <- list.files(dir_in, pattern = pattern, full.names = TRUE)
+if (length(files) == 0) {
+  stop("No dated BIOSCAN_working_data_*.csv files found in ", dir_in)
+}
+latest_file <- files[
+  which.max(
+    as.Date(sub(pattern, "\\1", basename(files)))
+  )
+]
+message("Loading ", basename(latest_file))
+cat("Loading ", basename(latest_file))
+working_set <- read.csv(latest_file, stringsAsFactors = FALSE)
+
 # Select needed columns and remove repeated entries
 working_set <- working_set %>% dplyr::select(sts_CATCH_LOT, trap_name, sts_latitude, sts_longitude, sts_col_date, day, month, year) %>% unique()
 
@@ -29,12 +44,15 @@ make_file_map <- function(folder, var) {
   files <- list.files(folder, pattern = "\\.nc$", full.names = TRUE)
   tibble(
     file = files,
-    month = as.integer(str_sub(basename(files), -7, -6)), # e.g. 2023
-    year = as.integer(str_sub(basename(files), -11, -8)), # e.g. 05
+    month = as.integer(str_sub(basename(files), -7, -6)), # select right number to get the month
+    year = as.integer(str_sub(basename(files), -11, -8)), # and the year
     var = var
   )
 }
 # 2021-2024 & provisional 2025 until July [these are present in Alicja's dropbox until the terra update happens]
+# tasmin_map <- make_file_map("/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/met_weather/tasmin_data", "tasmin") 
+# tasmax_map <- make_file_map("/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/met_weather/tasmax_data", "tasmax")
+# rain_map   <- make_file_map("/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/met_weather/rain_data",   "rainfall")
 tasmin_map <- make_file_map("~/Dropbox/1_BIOSCAN2024/weather/tasmin_dump", "tasmin") 
 tasmax_map <- make_file_map("~/Dropbox/1_BIOSCAN2024/weather/tasmax_dump", "tasmax")
 rain_map   <- make_file_map("~/Dropbox/1_BIOSCAN2024/weather/rain_dump",   "rainfall")
