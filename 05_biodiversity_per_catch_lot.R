@@ -1,3 +1,4 @@
+
 # This script calculates biodiversity metrics per catch lot
 # The output is a series of pots and a csv file:
 # biodiversity_catch_lot.csv
@@ -29,8 +30,8 @@ load_pkgs(cran_pkgs, bioconductor = FALSE)
 # Load Bioconductor packages
 load_pkgs(bioconductor_pkgs, bioconductor = TRUE)
 
-# Load the most up-to-date file [put the right input directory and the file name]
-dir_in   <- "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper"
+# Load data [put the right input directory and the file name]
+dir_in   <- "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/output"
 pattern  <- "^BIOSCAN_100k_samples_corrected(\\d{4}-\\d{2}-\\d{2})\\.csv$" 
 files <- list.files(dir_in, pattern = pattern, full.names = TRUE)
 if (length(files) == 0) {
@@ -46,20 +47,28 @@ cat("Loading ", basename(latest_file))
 working_set <- read.csv(latest_file, stringsAsFactors = FALSE)
 
 cat(paste("Number of samples:", nrow(working_set),
+          "\nNumber of sequenced samples:", nrow(working_set %>% filter(sequenced == TRUE)),
           "\nNumber of partners:", length(unique(working_set$partner)),
-          "\nNumber of traps:", length(unique(working_set$trap_name))
+          "\nNumber of traps:", length(unique(working_set$trap_name)),
+          "\nNumber of catch lots:", length(unique(working_set$sts_CATCH_LOT)),
+          "\nNumber of (partially)sequenced catch lots:", length(working_set %>% 
+                                                                  filter(sequenced_lot_level == TRUE) %>%
+                                                                  pull(sts_CATCH_LOT) %>% unique())
 ))
 
 # Filter only [fully/partially] sequenced catch lots 
 working_set <- working_set %>% 
   filter(sequenced_lot_level == TRUE)
 
+# Remove samples that have not been sequenced yet
+working_set <- working_set %>% filter(bioscan_qc_sanger_qc_result != "None")
+
 # Add information about the succes rate per catch lot
 seq_lot_success <- working_set  %>%
   group_by(sts_CATCH_LOT) %>% 
   summarise(
-    n_true  = sum(qc_res_updated == "PASS", na.rm = TRUE),
-    n_false = sum(qc_res_updated != "PASS", na.rm = TRUE),
+    n_true  = sum(bioscan_qc_sanger_qc_result == "PASS", na.rm = TRUE),
+    n_false = sum(bioscan_qc_sanger_qc_result != "PASS", na.rm = TRUE),
     .groups = "drop"
   ) %>% ungroup() %>% 
   mutate(
@@ -68,14 +77,22 @@ seq_lot_success <- working_set  %>%
 
 working_set <- merge(working_set, seq_lot_success, by = "sts_CATCH_LOT")
 
+ggplot(working_set, aes(x = seq_success_percentage)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "steelblue") +
+  labs(
+    x = "Sequencing success per catch lot (%)",
+    y = "Count"
+  ) +
+  theme_minimal()
+
 # Subset samples with BINs only [needed for abundance]
 cat(paste("No. samples without BINs:", 
-          working_set %>% filter(bold_bin_uri == "None") %>% nrow(),
+          working_set %>% filter(bioscan_qc_sanger_qc_result == "PASS") %>% filter(bold_bin_uri == "None") %>% nrow(),
           "\nPercentage of all samples:", 
-          (working_set %>% filter(bold_bin_uri == "None") %>% nrow())*100/nrow(working_set), "%"
-          ))
-cat("Selecting only samples with BINs")
-working_set_bins <- working_set %>% filter(bold_bin_uri != "None")
+          (working_set %>% filter(bioscan_qc_sanger_qc_result == "PASS") %>% filter(bold_bin_uri == "None") %>% nrow())*100/nrow(working_set), "%"
+))
+cat("Selecting only samples with BINs and that passed QC")
+working_set_bins <- working_set %>% filter(bioscan_qc_sanger_qc_result == "PASS") %>% filter(bold_bin_uri != "None")
 
 # length(unique(working_set$sts_CATCH_LOT))
 # length(unique(working_set_bins$sts_CATCH_LOT))
@@ -95,6 +112,40 @@ nrow(diversity_results)
 diversity_results <- merge(diversity_results, seq_lot_success, by = "sts_CATCH_LOT")
 nrow(diversity_results)
 
+# Add functional diversity 
+# Number of genera / number of families = taxonomic redundancy index
+# Because:
+# - many genera clustered in the same family = functionally redundant, low phylogenetic breadth
+# - fewer genera per family (i.e., many families represented) = functionally broader, higher ecosystem integrity
+
+# Should we filter out non-arthropods?????
+
+taxo_table <- working_set_bins %>%
+  group_by(sts_CATCH_LOT) %>%
+  summarise(
+    n_families = n_distinct(bold_family),
+    n_genera   = n_distinct(bold_genus),
+    n_bins     = n_distinct(bold_bin_uri),
+    .groups = "drop"
+  )
+
+taxo_table <- taxo_table %>%
+  mutate(
+    genera_per_family = n_genera / n_families
+  ) %>%
+  mutate(
+    bin_per_family = n_bins / n_families
+  ) %>%
+  mutate(
+    bin_per_genus = n_bins / n_genera
+  )
+
+# Merge 
+
+nrow(diversity_results)
+diversity_results <- merge(diversity_results, taxo_table, by = "sts_CATCH_LOT")
+nrow(diversity_results)
+
 # Save file
 file_out <- sprintf(
   "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/habitat_complexity/output/intermediary_files/04_biodiversity_catch_lot_%s.csv",
@@ -102,8 +153,27 @@ file_out <- sprintf(
 )
 write.csv(diversity_results, file_out, row.names = FALSE)
 
+# Catch lot success results
+all_CL <- ggplot(working_set %>% dplyr::select(sts_CATCH_LOT, seq_success_percentage) %>% unique(),
+                 aes(x = seq_success_percentage)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "steelblue") +
+  labs(
+    x = "Sequencing success per catch lot (%)",
+    y = "Count"
+  ) +
+  theme_minimal()
 
-# Make plots 
+passedQC <- ggplot(diversity_results, aes(x = seq_success_percentage)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "pink") +
+  labs(
+    x = "Sequencing success per catch lot (%)",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+all_CL + passedQC
+
+# Diversity plots 
 diversity_results$n_unique_bins <- factor(
   diversity_results$n_unique_bins,
   levels = min(diversity_results$n_unique_bins):max(diversity_results$n_unique_bins),
@@ -111,7 +181,7 @@ diversity_results$n_unique_bins <- factor(
 )
 
 shannon_distribution <- ggplot(diversity_results,
-                              aes(x = Shannon)) +
+                               aes(x = Shannon)) +
   geom_histogram(binwidth = 0.1, boundary = 0,
                  fill = "#5dc3e8", colour = "white") +
   scale_x_continuous(
