@@ -455,6 +455,8 @@ nrow(data_merge_final)
 table(data_merge_final$duration24)
 table(data_merge_final$sts_COLLECTION_METHOD)
 table(data_merge_final$sts_organism_part)
+table(data_merge_final$bioscan_qc_sanger_qc_result)
+table(data_merge_final$sequenced)
 table(data_merge_final$sequenced_plate_level)
 table(data_merge_final$sequenced_plate_level)
 
