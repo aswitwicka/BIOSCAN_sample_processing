@@ -71,6 +71,6 @@ mv *.nc ./tasmin_data/
 # Also run
 wget --header "Authorization: Bearer $CEDA_TOKEN" -i METdata_provisional2025.txt 
 # to get provisional 2025 datasets until they are curated in the early 2026 
-
+# Provisional MET dataset: https://www.metoffice.gov.uk/hadobs/hadukgrid 
 
 
