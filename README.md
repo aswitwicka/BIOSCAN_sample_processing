@@ -127,6 +127,7 @@ Each metric is exported to the output directory as a standalone CSV summarising 
 
 ### 05_biodiversity_per_catch_lot.R
 Add functional diversity here 
+Success per catch lot is calculated here and returned in the output data frame 
 
 ### 07_biodiversity_vs_habitat_models.R
 for all models remember to subset only 24h and catch lots with good performance - depending on the analysis
@@ -138,7 +139,7 @@ how to deal with the winter 24h+ samples??
 ### 10_taxonomy_plots.R
 
 ### 11_nbn_vs_bioscan.R
-
+higher-level comparisons 
 
 
 
