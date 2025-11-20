@@ -1,13 +1,27 @@
-library(terra)
-library(dplyr)
-library(lubridate)
-library(stringr)
-
 # This script must be run locally on alicja's computer because farm has outdated terra package and I still couldn't get this updated...
 # But it runs quite quickly 
 
-# Get sample-level data
-working_set <- read.csv("~/Dropbox/1_BIOSCAN2024/100k_paper/working_files/BIOSCAN_100k_samples_2025-09-29.csv") # Subset of samples [sample level data, not catch lot level data]
+load_pkgs <- function(pkg, bioconductor = FALSE) {
+  for (p in pkg) {
+    library(p, character.only = TRUE)
+  }
+}
+# CRAN packages
+cran_pkgs <- c(
+  "dplyr", "cluster", "reshape", "reshape2", "stringdist",
+  "ggiraph", "e1071", "gridExtra", "colorspace", "purrr",
+  "tidyverse", "RColorBrewer", "scales", "kableExtra",
+  "knitr", "patchwork", "rnaturalearth", "rnaturalearthdata", 
+  "ggplot2", "tidyr", "stringr", "terra", "dismo",
+  "parallel", "raster", "ncdf4", "seqinr", "vegan", "reshape2", "remotes",
+  "phangorn", "shiny", "sf", "tibble", "forcats", "lubridate", "viridis", "maps"
+)
+# Load CRAN packages
+load_pkgs(cran_pkgs, bioconductor = FALSE)
+
+# Get sample-level data (csv output of 01_subset_data.R)
+working_set <- read.csv("/Users/aw43/farm22/100k_paper/output/BIOSCAN_100k_samples_corrected2025-11-20.csv")
+# Select needed columns and remove repeated entries
 working_set <- working_set %>% dplyr::select(sts_CATCH_LOT, trap_name, sts_latitude, sts_longitude, sts_col_date, day, month, year) %>% unique()
 
 # Prepare file maps for each variable
@@ -20,30 +34,30 @@ make_file_map <- function(folder, var) {
     var = var
   )
 }
-# 2021-2024 & provisional 2025 until July
+# 2021-2024 & provisional 2025 until July [these are present in Alicja's dropbox until the terra update happens]
 tasmin_map <- make_file_map("~/Dropbox/1_BIOSCAN2024/weather/tasmin_dump", "tasmin") 
 tasmax_map <- make_file_map("~/Dropbox/1_BIOSCAN2024/weather/tasmax_dump", "tasmax")
 rain_map   <- make_file_map("~/Dropbox/1_BIOSCAN2024/weather/rain_dump",   "rainfall")
 
+# Map the dates using file names
 file_map <- bind_rows(tasmin_map, tasmax_map, rain_map)
 
 # Function to extract values for one record and one variable
 extract_vals <- function(var, lon, lat, date) {
   pt <- vect(data.frame(lon = lon, lat = lat), crs = "EPSG:4326")
   
-  # days of interest
+  #### SELECT DAYS ####
+  # Days of interest (the sampling day and two days prior - can be adjusted here!!!)
   dates_needed <- c(date, date - 1, date - 2)
   
   out <- sapply(dates_needed, function(d) {
     yr <- year(d); mo <- month(d)
     f <- file_map %>% filter(var == !!var, year == yr, month == mo) %>% pull(file)
     if (length(f) == 0) return(NA_real_)
-    
     r <- rast(f)
     dates <- as.Date(time(r))
     idx <- match(d, dates)
     if (is.na(idx)) return(NA_real_)
-    
     pt_grid <- project(pt, crs(r))
     terra::extract(r[[idx]], pt_grid, method = "bilinear")[,2]
   })
@@ -63,7 +77,7 @@ results <- working_set %>%
     tasmax_sampling = tasmax_vals[[1]], tasmax2 = tasmax_vals[[2]], tasmax3 = tasmax_vals[[3]],
     rain_sampling   = rain_vals[[1]],   rain2   = rain_vals[[2]],   rain3   = rain_vals[[3]]
   ) %>%
-  select(-tasmin_vals, -tasmax_vals, -rain_vals) %>%
+  dplyr::select(-tasmin_vals, -tasmax_vals, -rain_vals) %>%
   ungroup()
 
 # table(is.na(results))
@@ -83,9 +97,8 @@ results_summary <- results %>% dplyr::select(sts_CATCH_LOT, tasmin_sampling, tas
   ) %>%
   ungroup()
 
-
 # Save
-outfile <- paste0("/Users/aw43/farm22/100k_paper/weather_data_", format(Sys.Date(), "%Y-%m-%d"), ".csv")
+outfile <- paste0("/Users/aw43/farm22/100k_paper/output/weather_data_", format(Sys.Date(), "%Y-%m-%d"), ".csv")
 write.csv(results_summary, outfile, row.names = FALSE)
 
 table(results_summary$sts_CATCH_LOT %in% working_set$sts_CATCH_LOT)
