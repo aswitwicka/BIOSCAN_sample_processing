@@ -148,7 +148,7 @@ nrow(diversity_results)
 
 # Save file
 file_out <- sprintf(
-  "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/habitat_complexity/output/intermediary_files/04_biodiversity_catch_lot_%s.csv",
+  "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/output/04_biodiversity_catch_lot_%s.csv",
   today_stamp
 )
 write.csv(diversity_results, file_out, row.names = FALSE)
