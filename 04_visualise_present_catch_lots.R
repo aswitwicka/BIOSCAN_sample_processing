@@ -17,7 +17,7 @@ cran_pkgs <- c(
   "here", "knitr", "patchwork", "rnaturalearth", "rnaturalearthdata", 
   "ggplot2", "tidyr", "stringr", "terra", "dismo",
   "parallel", "bigmemory", "raster", "ncdf4", "seqinr", "vegan", "reshape2", "remotes",
-  "phangorn", "shiny", "sf", "textshape", "tibble", "forcats", "lubridate", "viridis", "maps"
+  "phangorn", "shiny", "sf", "tibble", "forcats", "lubridate", "viridis", "maps"
 )
 # Bioconductor packages
 bioconductor_pkgs <- c(
@@ -29,7 +29,7 @@ load_pkgs(cran_pkgs, bioconductor = FALSE)
 load_pkgs(bioconductor_pkgs, bioconductor = TRUE)
 
 # Load data [put the right input directory and the file name]
-dir_in   <- "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper"
+dir_in   <- "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/output"
 pattern  <- "^BIOSCAN_100k_samples_corrected(\\d{4}-\\d{2}-\\d{2})\\.csv$" 
 files <- list.files(dir_in, pattern = pattern, full.names = TRUE)
 if (length(files) == 0) {
@@ -46,7 +46,7 @@ working_set <- read.csv(latest_file, stringsAsFactors = FALSE)
 
 # Prepare data
 plot_data <- working_set %>%
-  dplyr::select(year, month, trap_name, sts_CATCH_LOT, plate, sequenced_lot_level) %>%
+  dplyr::select(year, month, trap_name, catch_lot, plate, sequenced_lot_level) %>%
   distinct() %>% 
   mutate(# day = as.integer(day),
     month = as.integer(month),
@@ -64,15 +64,9 @@ grid_data <- expand.grid(
 plot_data_full <- grid_data %>%
   left_join(plot_data, by = c("year", "month", "trap_name"))
 
-plot_data_full <- plot_data_full %>%
-  mutate(trap_name = case_when(
-    sts_CATCH_LOT %in% c("C091K", "C086K", "C087K") ~ "HEPP", # For some reason these catch lots don't have a partner assigned - need to check 
-    TRUE ~ trap_name
-  ))
-
 # Reorder traps by earliest day of sampling 
 trap_order <- plot_data_full %>%
-  filter(!is.na(sts_CATCH_LOT)) %>%
+  filter(!is.na(catch_lot)) %>%
   group_by(trap_name) %>%
   summarise(earliest_month = min(year, na.rm = TRUE)) %>%
   arrange(earliest_month) %>%
@@ -88,8 +82,8 @@ plot_data_full$month_factor <- as.factor(plot_data_full$month)
 completness <- ggplot(
   plot_data_full %>% filter(!(is.na(trap_name))) %>%
     mutate(
-      # Only fill where sts_CATCH_LOT exists
-      trap_name_fill = ifelse(is.na(sts_CATCH_LOT), NA, as.character(trap_name))
+      # Only fill where catch_lot exists
+      trap_name_fill = ifelse(is.na(catch_lot), NA, as.character(trap_name))
     ),
   aes(x = month_factor, y = trap_name, fill = sequenced_lot_level)
 ) +
@@ -110,7 +104,7 @@ completness <- ggplot(
 print(completness)
 
 ggsave(
-  "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/plots/completness2025_sequenced.pdf",
+  "/lustre/scratch126/tol/teams/lawniczak/projects/bioscan/100k_paper/plots/completness2025_updated_catch_lot_sequenced.pdf",
   plot   = completness,
   device = "pdf",
   width  = 40, height = 45, units = "cm"
