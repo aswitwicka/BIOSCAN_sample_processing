@@ -50,7 +50,7 @@ cat(paste("Number of samples:", nrow(working_set),
           "\nNumber of sequenced samples:", nrow(working_set %>% filter(sequenced == TRUE)),
           "\nNumber of partners:", length(unique(working_set$partner)),
           "\nNumber of traps:", length(unique(working_set$trap_name)),
-          "\nNumber of catch lots:", length(unique(working_set$sts_CATCH_LOT)),
+          "\nNumber of catch lots:", length(unique(working_set$catch_lot)),
           "\nNumber of (partially)sequenced catch lots:", length(working_set %>% 
                                                                   filter(sequenced_lot_level == TRUE) %>%
                                                                   pull(sts_CATCH_LOT) %>% unique())
@@ -65,7 +65,7 @@ working_set <- working_set %>% filter(bioscan_qc_sanger_qc_result != "None")
 
 # Add information about the succes rate per catch lot
 seq_lot_success <- working_set  %>%
-  group_by(sts_CATCH_LOT) %>% 
+  group_by(catch_lot) %>% 
   summarise(
     n_true  = sum(bioscan_qc_sanger_qc_result == "PASS", na.rm = TRUE),
     n_false = sum(bioscan_qc_sanger_qc_result != "PASS", na.rm = TRUE),
@@ -73,9 +73,9 @@ seq_lot_success <- working_set  %>%
   ) %>% ungroup() %>% 
   mutate(
     seq_success_percentage = n_true*100/(n_true + n_false)
-  ) %>% dplyr::select(sts_CATCH_LOT, seq_success_percentage)
+  ) %>% dplyr::select(catch_lot, seq_success_percentage)
 
-working_set <- merge(working_set, seq_lot_success, by = "sts_CATCH_LOT")
+working_set <- merge(working_set, seq_lot_success, by = "catch_lot")
 
 ggplot(working_set, aes(x = seq_success_percentage)) +
   geom_histogram(binwidth = 1, color = "black", fill = "steelblue") +
@@ -99,7 +99,7 @@ working_set_bins <- working_set %>% filter(bioscan_qc_sanger_qc_result == "PASS"
 
 # Shannon & Simpson [using vegan package for biodiveristy]
 diversity_results <- working_set_bins %>%
-  group_by(sts_CATCH_LOT) %>%
+  group_by(catch_lot) %>%
   summarise(
     Shannon = vegan::diversity(as.vector(table(bold_bin_uri)), index = "shannon"),
     Simpson = vegan::diversity(as.vector(table(bold_bin_uri)), index = "simpson"),
@@ -109,7 +109,7 @@ diversity_results <- working_set_bins %>%
 
 # Add success rates per catch lot 
 nrow(diversity_results)
-diversity_results <- merge(diversity_results, seq_lot_success, by = "sts_CATCH_LOT")
+diversity_results <- merge(diversity_results, seq_lot_success, by = "catch_lot")
 nrow(diversity_results)
 
 # Add functional diversity 
@@ -121,7 +121,7 @@ nrow(diversity_results)
 # Should we filter out non-arthropods?????
 
 taxo_table <- working_set_bins %>%
-  group_by(sts_CATCH_LOT) %>%
+  group_by(catch_lot) %>%
   summarise(
     n_families = n_distinct(bold_family),
     n_genera   = n_distinct(bold_genus),
@@ -143,7 +143,7 @@ taxo_table <- taxo_table %>%
 # Merge 
 
 nrow(diversity_results)
-diversity_results <- merge(diversity_results, taxo_table, by = "sts_CATCH_LOT")
+diversity_results <- merge(diversity_results, taxo_table, by = "catch_lot")
 nrow(diversity_results)
 
 # Save file
@@ -154,7 +154,7 @@ file_out <- sprintf(
 write.csv(diversity_results, file_out, row.names = FALSE)
 
 # Catch lot success results
-all_CL <- ggplot(working_set %>% dplyr::select(sts_CATCH_LOT, seq_success_percentage) %>% unique(),
+all_CL <- ggplot(working_set %>% dplyr::select(catch_lot, seq_success_percentage) %>% unique(),
                  aes(x = seq_success_percentage)) +
   geom_histogram(binwidth = 1, color = "black", fill = "steelblue") +
   labs(
