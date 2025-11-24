@@ -137,23 +137,6 @@ manifests <- manifests %>%
       bioscan_qc_sanger_qc_result == "None" ~ FALSE
     )
   )
-# Add coluns with sequencing success
-# Catch lot level
-manifests <- manifests %>%
-  group_by(sts_CATCH_LOT) %>%
-  mutate(sequenced_lot_level = if_else(
-    any(sts_specimen.id %in% all_seq_samples, na.rm = TRUE),
-    "TRUE", "FALSE"
-  )) %>%
-  ungroup()
-# Plate level
-manifests <- manifests %>%
-  group_by(plate) %>%
-  mutate(sequenced_plate_level = if_else(
-    any(sts_specimen.id %in% all_seq_samples, na.rm = TRUE),
-    "TRUE", "FALSE"
-  )) %>%
-  ungroup()
 
 # Remove empty negative controls and partial plate samples 
 # Get sequenced plates (samples in mBRAVE)
@@ -203,7 +186,6 @@ ggsave(
   device = "pdf",
   width  = 10, height = 6, units = "cm"
 )
-manifests <- manifests %>% filter(duration24 == "YES")
 cat("\nManifest subsets created")
 
 # Add trap info
@@ -400,6 +382,85 @@ manifests <- manifests %>%
 is.na(manifests$region) %>% table()
 table(manifests$region)
 
+# Additinal columns
+
+# Remove catch lots that should not be here
+manifests <- manifests %>% filter(!(sts_CATCH_LOT %in% c("6M", "5M", "NOT_APPLICABLE")))
+# "NOT_APPLICABLE" is from NHS - catches over 24h now excluded
+
+# Add updated catch lot column
+manifests$catch_lot <- paste(manifests$trap_name, manifests$year, manifests$month, manifests$day, sep = "_")
+
+cat("Catch lot numbers that appear across dates/partners [ERRORS]:\n")
+manifests %>%
+  group_by(sts_CATCH_LOT) %>%
+  filter(n_distinct(catch_lot) > 1) %>% pull(sts_CATCH_LOT) %>% table
+
+# Add coluns with sequencing success
+# Catch lot level
+manifests <- manifests %>%
+  group_by(catch_lot) %>%
+  mutate(sequenced_lot_level = if_else(
+    any(sts_specimen.id %in% all_seq_samples, na.rm = TRUE),
+    "TRUE", "FALSE"
+  )) %>%
+  ungroup()
+# Plate level
+manifests <- manifests %>%
+  group_by(plate) %>%
+  mutate(sequenced_plate_level = if_else(
+    any(sts_specimen.id %in% all_seq_samples, na.rm = TRUE),
+    "TRUE", "FALSE"
+  )) %>%
+  ungroup()
+
+# Uniform catch duration across catch lots 
+
+# Find catch lots where duration24 contains both "YES" and "NO" (inconsistently entered by a partner)
+lots_with_both <- manifests %>%
+  group_by(catch_lot) %>%
+  filter(any(duration24 == "YES") & any(duration24 == "NO")) %>%
+  ungroup()
+
+cat("Catch lots with inconsistent sampling duration codes:\n")
+lots_with_both %>% pull(catch_lot) %>% unique()
+lots_with_both %>% pull(sts_CATCH_LOT) %>% unique()
+
+# Correct duration24 within these groups (if half or more have 24h sampling then correct for all )
+manifests <- manifests %>%
+  group_by(catch_lot) %>%
+  mutate(
+    prop_yes = mean(duration24 == "YES"),
+    duration24 = if_else(prop_yes > 0.5, "YES", duration24)
+  ) %>%
+  dplyr::select(-prop_yes) %>%
+  ungroup()
+
+# Display catch_lots that STILL have any “NO” remaining
+remaining_no <- manifests %>%
+  filter(catch_lot %in% lots_with_both$catch_lot) %>% 
+  group_by(catch_lot) %>%
+  filter(any(duration24 == "NO")) %>%
+  ungroup()
+
+cat("Catch lots with inconsistent sampling duration codes after correction (more than 50% of samples have not been samples for 24h):\n")
+remaining_no %>% pull(catch_lot) %>% unique()
+remaining_no %>% pull(sts_CATCH_LOT) %>% unique()
+
+# remaining_no %>%
+#   dplyr::select(catch_lot, sts_CATCH_LOT, trap_name, duration24, actual_duration) %>%
+#   arrange(catch_lot) %>% View()
+
+summary_table <- remaining_no %>%
+  group_by(catch_lot, sts_CATCH_LOT, trap_name) %>%
+  summarize(
+    how_many_24 = sum(duration24 == "YES", na.rm = TRUE),
+    how_many_other = sum(duration24 == "NO",  na.rm = TRUE),
+    .groups = "drop"
+  )
+
+summary_table
+
 # Update BOLD data
 library(BOLDconnectR)
 bold.apikey('32D02751-6F67-4211-BB84-4892748D5F95')
@@ -458,7 +519,11 @@ table(data_merge_final$sts_organism_part)
 table(data_merge_final$bioscan_qc_sanger_qc_result)
 table(data_merge_final$sequenced)
 table(data_merge_final$sequenced_plate_level)
-table(data_merge_final$sequenced_plate_level)
+table(data_merge_final$sequenced_lot_level)
+cat("No sts_CATCH_LOT:\n")
+length(unique(data_merge_final$sts_CATCH_LOT))
+cat("No corrected catch_lot:\n")
+length(unique(data_merge_final$catch_lot))
 
 table(data_merge_final$bold_class)
 table(data_merge_final$bold_kingdom)
@@ -477,7 +542,7 @@ file_out    <- sprintf(
 write.csv(data_merge_final, file_out, row.names = FALSE)
 cat("\nOutput created")
 
-# This dataset containds all BIOSCAN samples (Malaise traps + 24h (±2h) sampling)
+# This dataset containds all BIOSCAN samples (Malaise traps + 24h (±2h) sampling and all other > 24h samples)
 # It includes all samples sampled, sequenced, QC-ed
 # It also includes all catch lots regardless of sequencing success 
 # and all samples regardless of taxonomy (arthropod or not)
